@@ -1,97 +1,105 @@
-const recipes = [
-    {
-        id: 1,
-        title: "Creamy Garlic Pasta",
-        time: 25,
-        difficulty: "easy",
-        description: "A quick and comforting garlic pasta with a creamy sauce.",
-        category: "pasta"
-    },
-    {
-        id: 2,
-        title: "Vegetable Stir Fry",
-        time: 20,
-        difficulty: "easy",
-        description: "Colorful vegetables stir-fried with a light soy sauce glaze.",
-        category: "salad"
-    },
-    {
-        id: 3,
-        title: "Chicken Biryani",
-        time: 90,
-        difficulty: "hard",
-        description: "Aromatic rice cooked with spiced chicken and herbs.",
-        category: "curry"
-    },
-    {
-        id: 4,
-        title: "Paneer Butter Masala",
-        time: 45,
-        difficulty: "medium",
-        description: "Soft paneer cubes in a rich tomato butter gravy.",
-        category: "curry"
-    },
-    {
-        id: 5,
-        title: "Grilled Cheese Sandwich",
-        time: 15,
-        difficulty: "easy",
-        description: "Classic crispy sandwich with melted cheese inside.",
-        category: "snack"
-    },
-    {
-        id: 6,
-        title: "Beef Roast",
-        time: 120,
-        difficulty: "hard",
-        description: "Slow-cooked beef roast with deep, intense flavors.",
-        category: "meat"
-    },
-    {
-        id: 7,
-        title: "Caesar Salad",
-        time: 30,
-        difficulty: "medium",
-        description: "Fresh lettuce tossed with creamy Caesar dressing.",
-        category: "salad"
-    },
-    {
-        id: 8,
-        title: "Mushroom Risotto",
-        time: 60,
-        difficulty: "medium",
-        description: "Creamy Italian rice dish cooked slowly with mushrooms.",
-        category: "rice"
-    }
-];
+(() => {
+  const recipeContainer = document.getElementById("recipeContainer");
+  const searchInput = document.getElementById("searchInput");
+  const favoritesFilter = document.getElementById("favoritesFilter");
+  const recipeCounter = document.getElementById("recipeCounter");
 
-/* ---------- DOM Selection ---------- */
-const recipeContainer = document.querySelector("#recipe-container");
+  let searchQuery = "";
+  let showFavoritesOnly = false;
+  let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
 
-/* ---------- Create Recipe Card ---------- */
-const createRecipeCard = (recipe) => {
+  /* ------------------ Debounce ------------------ */
+  const debounce = (fn, delay = 300) => {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
+
+  /* ------------------ Search ------------------ */
+  const handleSearch = debounce((value) => {
+    searchQuery = value.toLowerCase();
+    renderRecipes();
+  }, 300);
+
+  searchInput.addEventListener("input", (e) => {
+    handleSearch(e.target.value);
+  });
+
+  /* ------------------ Favorites ------------------ */
+  const isFavorite = (id) => favorites.includes(id);
+
+  const toggleFavorite = (id) => {
+    favorites = isFavorite(id)
+      ? favorites.filter(favId => favId !== id)
+      : [...favorites, id];
+
+    localStorage.setItem("favorites", JSON.stringify(favorites));
+    renderRecipes();
+  };
+
+  /* ------------------ Render Card ------------------ */
+  const renderRecipeCard = (recipe) => {
     return `
-    <div class="recipe-card" data-id="${recipe.id}">
-      <h3>${recipe.title}</h3>
-      <div class="recipe-meta">
-        <span>⏱️ ${recipe.time} min</span>
-        <span class="difficulty ${recipe.difficulty}">
-          ${recipe.difficulty}
-        </span>
+      <div class="recipe-card">
+        <h3>${recipe.title}</h3>
+
+        <button class="favorite-btn" data-id="${recipe.id}">
+          ${isFavorite(recipe.id) ? "❤️" : "🤍"}
+        </button>
+
+        <p>${recipe.description}</p>
       </div>
-      <p>${recipe.description}</p>
-    </div>
-  `;
-};
+    `;
+  };
 
-/* ---------- Render Recipes ---------- */
-const renderRecipes = (recipesArray) => {
-    const recipesHTML = recipesArray
-        .map((recipe) => createRecipeCard(recipe))
-        .join("");
+  /* ------------------ Favorites Filter ------------------ */
+  favoritesFilter.addEventListener("change", (e) => {
+    showFavoritesOnly = e.target.checked;
+    renderRecipes();
+  });
 
-    recipeContainer.innerHTML = recipesHTML;
-};
+  /* ------------------ Counter ------------------ */
+  const updateCounter = (shown, total) => {
+    recipeCounter.textContent = `Showing ${shown} of ${total} recipes`;
+  };
 
-/* ---------- Initialize App ---------- */
-renderRecipes(recipes);
+  /* ------------------ Main Render ------------------ */
+  const renderRecipes = () => {
+    let filteredRecipes = [...recipes];
+
+    // Search
+    if (searchQuery) {
+      filteredRecipes = filteredRecipes.filter(recipe =>
+        recipe.title.toLowerCase().includes(searchQuery) ||
+        recipe.ingredients.some(ing =>
+          ing.toLowerCase().includes(searchQuery)
+        )
+      );
+    }
+
+    // Favorites only
+    if (showFavoritesOnly) {
+      filteredRecipes = filteredRecipes.filter(recipe =>
+        isFavorite(recipe.id)
+      );
+    }
+
+    recipeContainer.innerHTML = filteredRecipes
+      .map(renderRecipeCard)
+      .join("");
+
+    updateCounter(filteredRecipes.length, recipes.length);
+  };
+
+  /* ------------------ Events ------------------ */
+  recipeContainer.addEventListener("click", (e) => {
+    if (e.target.classList.contains("favorite-btn")) {
+      toggleFavorite(e.target.dataset.id);
+    }
+  });
+
+  /* ------------------ Init ------------------ */
+  renderRecipes();
+})();
